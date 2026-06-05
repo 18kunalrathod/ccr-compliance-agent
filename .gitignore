@@ -1,0 +1,15 @@
+# Virtual Environment
+venv/
+
+# Browser Profile
+westlaw-profile/
+
+# Python
+__pycache__/
+*.pyc
+
+# Environment Variables
+.env
+
+# macOS
+.DS_Store
