@@ -18,6 +18,7 @@
 
 
 import asyncio
+import json
 from crawl4ai import AsyncWebCrawler, BrowserConfig
 
 async def main():
@@ -29,7 +30,7 @@ async def main():
         user_data_dir="./westlaw-profile"
     )
 
-    target_url = "https://govt.westlaw.com/calregs"
+    target_url = "https://www.dir.ca.gov/"
 
     print(f"Starting crawler on {target_url}...")
     print("NOTE: If a browser window opens with a Cloudflare challenge, solve it manually!")
@@ -47,13 +48,26 @@ async def main():
         print("\nSuccess:", result.success)
 
         if result.success:
-            print(result.markdown[:1000])
+
+            internal_links = result.links.get("internal", [])
+
+            print(f"Found {len(internal_links)} internal links")
+
+            with open("data/discovered_urls.json", "w") as f:
+                json.dump(internal_links, f, indent=2)
+
+            print("URLs saved to data/discovered_urls.json")
+
         else:
             print("Error Message:", result.error_message)
 
 if __name__ == "__main__":
     asyncio.run(main())
 
-
     # Crawl4ai experiment
     # Blocked by anti-bot protection: Cloudflare JS challenge
+     # Browser window opens with a Cloudflare challenge, solve it manually!
+     # page_timeout=180000
+    # using other url to crawl: https://www.dir.ca.gov/
+    
+   

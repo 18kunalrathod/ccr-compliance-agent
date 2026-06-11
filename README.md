@@ -1,207 +1,246 @@
-# CCR Compliance Agent
+# DIR Compliance Agent
 
-## Status
-
-🚧 Early Development
+A Retrieval-Augmented Generation (RAG) assistant built to answer California Department of Industrial Relations (DIR) compliance questions using official DIR website content.
 
 ## Overview
 
-CCR Compliance Agent is a research project exploring automated website navigation, content extraction, and compliance validation workflows.
+This project crawls compliance-related pages from the California DIR website, stores the content in a vector database (ChromaDB), retrieves relevant information based on user queries, and uses Google's Gemini API to generate grounded answers.
+
+The system follows a RAG architecture:
+
+User Question
+      ↓
+ChromaDB Retrieval
+      ↓
+Relevant DIR Documents
+      ↓
+Gemini 2.5 Flash
+      ↓
+Answer + Source Citations
 
 ---
 
-# Day 1 - Initial Investigation
+## Features
 
-## Objectives
-
-* Set up project environment
-* Explore CCR (California Code of Regulations) source website
-* Test Crawl4AI as the primary crawler
-* Evaluate website accessibility
-
-## Work Completed
-
-* Created project structure
-* Installed Crawl4AI
-* Investigated Westlaw CCR website hierarchy
-* Identified target URLs for content extraction
-* Implemented initial Crawl4AI crawler
-
-## Findings
-
-The target website is protected by Cloudflare anti-bot mechanisms.
-
-Initial Crawl4AI requests failed with:
-
-```text
-Blocked by anti-bot protection: Cloudflare JS challenge
-```
-
-This indicated that the crawler was being blocked before content extraction could occur.
-
-## Conclusion
-
-Basic crawling was unsuccessful due to Cloudflare protection. Further investigation was required to determine whether browser automation could access the content.
+- Crawl DIR website pages
+- Extract and store page content
+- Chunk large documents
+- Store embeddings in ChromaDB
+- Semantic search using vector retrieval
+- Gemini-powered answer generation
+- Source citation support
+- Token usage optimization
 
 ---
 
-# Day 2 - Playwright Investigation
+## Tech Stack
 
-## Objectives
+### Backend
+- Python
+- Crawl4AI
+- ChromaDB
+- Google Gemini API
+- python-dotenv
 
-* Evaluate browser automation as an alternative approach
-* Determine whether a real browser session could access Westlaw content
-* Compare browser behavior with Crawl4AI
-
-## Work Completed
-
-* Installed Playwright
-* Installed Chromium browser dependencies
-* Created Playwright test script
-* Configured visible browser mode (`headless=False`)
-* Tested navigation to the Westlaw CCR website
-
-## Findings
-
-Playwright successfully launched a real Chromium browser and reached the target website.
-
-Unlike Crawl4AI, Playwright was able to load the Cloudflare verification page.
-
-However, after manually completing the verification challenge, Cloudflare repeatedly displayed additional verification requests.
-
-Observed behavior:
-
-```text
-Verify you are human
-↓
-Verification accepted
-↓
-Verification page reloads
-↓
-Verify you are human
-```
-
-This resulted in a verification loop.
-
-## Additional Testing
-
-The same website was opened manually using a normal Chrome browser.
-
-Result:
-
-* Website loaded successfully 
-* No verification loop occurred
-* Content was accessible
-
-## Conclusion
-
-The issue appears to be related to automation detection rather than website availability.
-
-Comparison:
-
-| Method         | Result                             |
-| -------------- | ---------------------------------- |
-| Crawl4AI       | Blocked by Cloudflare JS Challenge |
-| Playwright     | Verification Loop                  |
-| Chrome Browser | Successful Access                  |
+### Data Storage
+- JSON
+- ChromaDB Vector Store
 
 ---
 
-# Day 3 - Crawl4AI Configuration Experiments
-
-## Objectives
-
-* Improve Crawl4AI browser behavior
-* Reduce automation indicators
-* Follow recommendations provided by the assignment owner
-
-## Configuration Changes
-
-Implemented the following Crawl4AI settings:
-
-```python
-BrowserConfig(
-    headless=False,
-    enable_stealth=True,
-    use_persistent_context=True,
-    user_data_dir="./westlaw-profile"
-)
-```
-
-### Experiment 1 - Stealth Mode
-
-Enabled:
-
-* Chromium browser
-* Stealth mode
-
-Result:
+## Project Structure
 
 ```text
-Blocked by anti-bot protection: Cloudflare JS challenge
+ccr-compliance-agent/
+│
+├── crawler/
+│   ├── test_crawl.py
+│   ├── extract_pages.py
+│   ├── chunk_pages.py
+│   ├── load_chroma.py
+│   ├── search_chroma.py
+│   └── agent.py
+│
+├── data/
+│   ├── discovered_urls.json
+│   ├── pages.jsonl
+│   └── chunks.jsonl
+│
+├── chroma_db/
+│
+├── .env
+├── .gitignore
+└── README.md
 ```
 
-### Experiment 2 - Persistent Browser Profile
+---
 
-Configured:
+## Setup
+
+### 1. Clone Repository
+
+```bash
+git clone <repository-url>
+cd ccr-compliance-agent
+```
+
+### 2. Create Virtual Environment
+
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Create Environment File
+
+Create a `.env` file:
+
+```env
+GEMINI_API_KEY=YOUR_API_KEY
+```
+
+---
+
+## Running the Pipeline
+
+### Step 1: Crawl DIR Website
+
+```bash
+python crawler/test_crawl.py
+```
+
+This discovers internal DIR links and stores them in:
 
 ```text
-westlaw-profile/
+data/discovered_urls.json
 ```
 
-to maintain browser state between sessions.
+---
 
-Verification showed that the profile was successfully created and persisted.
+### Step 2: Extract Page Content
 
-Result:
+```bash
+python crawler/extract_pages.py
+```
+
+Output:
 
 ```text
-Blocked by anti-bot protection: Cloudflare JS challenge
+data/pages.jsonl
 ```
 
-### Experiment 3 - Delayed Request Execution
+---
 
-Added:
+### Step 3: Create Chunks
 
-```python
-await asyncio.sleep(15)
+```bash
+python crawler/chunk_pages.py
 ```
 
-before starting the crawl.
-
-Objective:
-
-* Simulate more human-like behavior
-* Reduce likelihood of triggering Cloudflare protection
-
-Result:
+Output:
 
 ```text
-Blocked by anti-bot protection: Cloudflare JS challenge
+data/chunks.jsonl
 ```
 
-### Observation
+---
 
-The crawl completed in less than one second after execution, suggesting that Cloudflare protection was triggered before meaningful browser interaction occurred.
+### Step 4: Load into ChromaDB
 
-## Summary of Experiments
+```bash
+python crawler/load_chroma.py
+```
 
-| Experiment                    | Result            |
-| ----------------------------- | ----------------- |
-| Crawl4AI Default              | Blocked           |
-| Crawl4AI + Stealth Mode       | Blocked           |
-| Crawl4AI + Persistent Profile | Blocked           |
-| Crawl4AI + Delay Before Crawl | Blocked           |
-| Playwright Browser Automation | Verification Loop |
-| Normal Chrome Browser         | Successful        |
+Creates collection:
 
-## Current Understanding
+```text
+ccr_documents
+```
 
-The target website actively detects and blocks automated crawling behavior.
+---
 
-Current evidence suggests:
+### Step 5: Run the Compliance Agent
 
-* Website accessibility is not the issue.
-* Cloudflare protection is the primary blocker.
-* Browser automation is detected differently from normal browser usage.
-* Additional investigation is required to determine the intended crawling strategy for the assignment.
+```bash
+python crawler/agent.py
+```
+
+Example:
+
+```text
+Ask a question:
+heat illness prevention requirements
+
+Answer:
+...
+
+Sources:
+https://www.dir.ca.gov/...
+```
+
+---
+
+## Architecture
+
+### Retrieval Phase
+
+1. User submits a question.
+2. ChromaDB performs semantic similarity search.
+3. Top relevant document chunks are retrieved.
+
+### Generation Phase
+
+1. Retrieved chunks are combined into context.
+2. Context is sent to Gemini 2.5 Flash.
+3. Gemini generates an answer using only retrieved content.
+4. Source URLs are displayed.
+
+---
+
+## Token Optimization
+
+To reduce Gemini API usage:
+
+- Top 3 chunks are retrieved
+- Context is limited to 4000 characters
+- Only relevant document chunks are sent to Gemini
+
+This helps reduce API costs while maintaining answer quality.
+
+---
+
+## Challenges Faced
+
+### Cloudflare Protection
+
+During early project exploration, several CCR-related sources were protected by Cloudflare and anti-bot mechanisms, which limited automated crawling. To complete the end-to-end RAG pipeline, the final implementation was built using publicly accessible California DIR content.
+
+Approaches explored:
+
+- Crawl4AI
+- Playwright browser automation
+- Persistent browser profiles
+
+### API Quota Limits
+
+While testing, Gemini free-tier quota limits were encountered.
+
+Mitigations:
+
+- Reduced retrieval size
+- Context length limiting
+- Error handling for quota exhaustion
+
+---
+
+## Author
+
+Kunal Rathod
+
+Built as a Retrieval-Augmented Generation (RAG) compliance assistant using official California DIR content.
