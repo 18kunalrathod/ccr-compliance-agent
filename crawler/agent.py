@@ -16,16 +16,12 @@ client = chromadb.PersistentClient(path="chroma_db")
 
 collection = client.get_collection("ccr_documents")
 
-while True:
-    question = input("\nAsk a question (or 'quit'): ")
 
-    if question.lower() == "quit":
-        break
+def ask_question(question):
 
-    # Search Chroma
     results = collection.query(
         query_texts=[question],
-        n_results=3
+        n_results=10  #3
     )
 
     contexts = []
@@ -40,7 +36,6 @@ while True:
 
     context_text = "\n\n".join(contexts)
 
-    # Limiting my token usage 
     context_text = context_text[:4000]
 
     prompt = f"""
@@ -57,21 +52,35 @@ Question:
 Answer:
 """
 
-    print("\nSending request to Gemini...")
-    print("Context length:", len(context_text))
-
     try:
         response = model.generate_content(prompt)
 
-        print("\nAnswer:")
-        print(response.text)
-
-        print("\nSources:")
-        for url in set(citations):
-            print("-", url)
+        return {
+            "answer": response.text,
+            "sources": list(set(citations))
+        }
 
     except Exception as e:
-        print("\nGemini API Error:")
-        print(e)
-        print("\nCheck your API key, quota, or billing settings.")
-        continue
+        return {
+            "answer": f"Error: {str(e)}",
+            "sources": []
+        }
+
+
+if __name__ == "__main__":
+
+    while True:
+
+        question = input("\nAsk a question (or 'quit'): ")
+
+        if question.lower() == "quit":
+            break
+
+        result = ask_question(question)
+
+        print("\nAnswer:")
+        print(result["answer"])
+
+        print("\nSources:")
+        for url in result["sources"]:
+            print("-", url)
